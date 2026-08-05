@@ -1,0 +1,65 @@
+{
+  "name": "stock_market_quantitative_trading_analysis",
+  "description": "我想要做台灣股市量化交易策略，我會input一家公司的股票代碼，會有四個代理開始跑，第一個是大盤分析師，要去找台灣加權指數的技術指標資料，判斷技術面上是否轉空或是轉多，如發生反轉需要靠你判斷什麼時候才可以買股票，或是給出建議，守住哪條支撐或是跌破哪條壓力應該保守或應該積極低階股票。第二個是技術分析師，根據股價的五日十日均線判斷股價強不強勢，接著分析支撐壓力區來判斷風險，然後判斷成交量是否有跟上趨勢，最後整理出在技術面上是否可以買進與賣出並與下一個代理討論，第三個代理是基本面分析師，要告訴其他代理這家公司基本面成長強不強，未來預估獲利多寡，並判斷未來一年本益比換算股價大概會落在哪個區間，本益比請使用三個情境去分析，樂觀、中立與悲觀。第四個代理是新聞與情緒分析師，會上網找3個與這家公司有關的新聞再找3個台灣股市的新聞再找1個這個產業的新聞最後找兩個國際新聞可能會影響股價的，判斷股市是否過熱，或是公司與產業是否有負面消息會影響股價。第五個代理是總風控官兼基金經理，要判斷由第一個與第二個與第三個代理提供的數據判斷技術面與基本面是否可以買進，並配上第四個代理給的新聞資料，判斷整體市場風險，與市場是否過熱或過於悲觀，如風險過高可以回答不買股票，並根據前兩位技術分析師給的支撐壓力區來判斷以技術面來看什麼時候才可以買，然後再根據第三位分析師判斷未來預估本益比是否便宜，最後藉由前四位分析師的資料判斷是否可以買股票，並完整說明分析的依據與結論。",
+  "knowledge": [
+    "skills/fundamental_analysis_playbook.md",
+    "skills/technical_analysis_playbook.md",
+    "skills/risk_management_playbook.md"
+  ],
+  "llm": "openai/nemotron-3-ultra-free",
+  "agents": [
+    {
+      "file": "agents/market_analyst.json"
+    },
+    {
+      "file": "agents/technical_analyst.json"
+    },
+    {
+      "file": "agents/fundamental_analyst.json"
+    },
+    {
+      "file": "agents/news_sentiment_analyst.json"
+    },
+    {
+      "file": "agents/chief_risk_officer.json"
+    }
+  ],
+  "tasks": [
+    {
+      "name": "market_analysis",
+      "description": "【第一步 - 必做】呼叫 stock_identity_resolver 工具，輸入股票代碼 {stock_id}，確認公司中文名稱、英文名稱、產業。後續所有分析都必須使用確認後的「公司中文名稱」，不得自行猜測或更換。【必須呼叫的工具（依序）】1) stock_identity_resolver({stock_id}) 2) tw_market_index_query（無參數） 3) tw_macro_query（無參數）。絕對禁止跳過 tw_market_index_query，否則以「資料不足」標示，嚴禁自行編造指數數據；同時也必須呼叫 tw_macro_query 取得總體經濟環境數據（台幣匯率、美債殖利率、VIX、美元指數），同樣嚴禁編造。接著才是你的本職：此任務由大盤分析師負責，接收使用者輸入的股票代碼後，立即與其他三項分析任務（技術、基本面、新聞情緒）平行啟動。分析師需蒐集台灣加權指數最新技術指標數據，包含均線（5日、10日、月線、季線）、RSI、MACD、KD 與布林通道等，判斷大盤目前趨勢方向（多頭、空頭、盤整）。若出現反轉訊號，需明確指出轉強或轉弱的觸發條件，並給出關鍵支撐與壓力位。此外需整合總體經濟環境：分析台幣匯率走勢（升貶值對電子/外銷股的影響）、美債10年期殖利率（資金成本與市場風險偏好）、VIX 恐慌指數（市場情緒，VIX>30 屬恐慌區間）、美元指數（國際資金流向），說明這些總經指標對大盤與個股操作的意義。最後產出大盤是否適合進場的整體判斷與對個股操作的建議立場（積極、保守或觀望）。",
+      "expected_output": "Markdown 格式報告，需包含：(1) 大盤技術指標數據表；(2) 趨勢方向判斷（多/空/盤整）與依據；(3) 關鍵支撐位與壓力位（具體點數）；(4) 反轉訊號說明；(5) 總體經濟環境分析（台幣/美債殖利率/VIX/美元指數，含數值與對操作之意義）；(6) 對個股操作的整體建議立場（積極/保守/觀望）與進場時機指引。",
+      "agent": "market_analyst"
+    },
+    {
+      "name": "technical_analysis",
+      "description": "【第一步 - 必做】呼叫 stock_identity_resolver 工具，輸入股票代碼 {stock_id}，確認公司中文名稱、英文名稱、產業。後續所有分析都必須使用確認後的「公司中文名稱」，不得自行猜測或更換。【必須呼叫的工具（依序）】1) stock_identity_resolver({stock_id}) 2) tw_stock_kline_query({stock_id})。絕對禁止跳過 tw_stock_kline_query，否則以「資料不足」標示，嚴禁自行編造股價。接著才是你的本職：此任務由技術分析師負責，與大盤分析、基本面分析、新聞情緒分析三項任務平行執行，僅需以股票代碼作為輸入。分析師需先計算該個股的 5 日與 10 日均線位置，判斷股價相對均線的強弱（多頭排列、空頭排列或糾結）。接著繪製近 60 日 K 線找出主要支撐區與壓力區，評估目前股價所在位置的風險。最後檢視成交量是否與趨勢同步放大或萎縮，整理出技術面上的買進、觀望或賣出建議，並列出關鍵價位供後續總風控官參考。",
+      "expected_output": "Markdown 格式報告，需包含：(1) 5 日/10 日均線數值與股價相對位置；(2) 強勢/弱勢判斷與依據；(3) 支撐區間與壓力區間（具體價位帶）；(4) 成交量趨勢分析（價量配合狀況）；(5) 技術面操作建議（買進/觀望/賣出）與建議進場價、停損價。",
+      "agent": "technical_analyst"
+    },
+    {
+      "name": "fundamental_analysis",
+      "description": "【第一步 - 必做】呼叫 stock_identity_resolver 工具，輸入股票代碼 {stock_id}，確認公司中文名稱、英文名稱、產業。後續所有分析都必須使用確認後的「公司中文名稱」，不得自行猜測或更換。【必須呼叫的工具（依序）】1) stock_identity_resolver({stock_id}) 2) tw_fundamental_query({stock_id}) 3) finmind_pe_ratio_history({stock_id}) 4) finmind_monthly_revenue({stock_id}) 5) finmind_institutional_investors({stock_id}) 6) finmind_eps_net_profit({stock_id})。六支工具都要呼叫，任一呼叫失敗或回傳無資料，該項目一律標示「資料不足」，嚴禁編造 EPS、PER、營收等數字。EPS 資料來源優先權：finmind_eps_net_profit 回傳的官方財報「實際 TTM EPS」為唯一來源（Yahoo 的 EPS/PE 已停用不回傳，不得引用任何 Yahoo EPS 數字）；Forward EPS 一律依 finmind_eps_net_profit 的最新季 EPS 與 YoY 成長推估（run-rate 或 TTM×(1+YoY) 取保守者）並標示為「推估值」。若 finmind_pe_ratio_history 回傳「資料不足」、有效樣本 < 60 筆、或涵蓋不足 6 個月，三情境目標本益比與合理股價區間一律標示「資料不足」，嚴禁以少量樣本推算目標價。接著才是你的本職：此任務由基本面分析師負責，與大盤、技術、新聞情緒分析三項任務平行執行，以股票代碼查詢該公司最新財務資料。分析師需先評估公司近四季營收、EPS 與毛利成長率，判斷基本面成長動能強弱，並參考法人或券商對未來一年的獲利預估。接著設定三種情境（樂觀、中立、悲觀），分別給予目標本益比倍數（可參考同業平均與歷史區間），換算未來一年合理股價區間。最後總結基本面是否支持目前股價或具備上漲空間。",
+      "expected_output": "Markdown 格式報告，需包含：(1) 公司基本面成長強度評等（強/中/弱）與數據依據；(2) 未來一年 EPS 預估（樂觀/中立/悲觀三情境）；(3) 三情境目標本益比與對應合理股價區間表；(4) 同業比較與歷史區間位置；(5) 基本面綜合結論（股價偏貴/合理/便宜）。",
+      "agent": "fundamental_analyst"
+    },
+    {
+      "name": "news_sentiment_analysis",
+      "description": "【第一步 - 必做】呼叫 stock_identity_resolver 工具，輸入股票代碼 {stock_id}，確認公司中文名稱、英文名稱、產業。後續所有分析都必須使用確認後的「公司中文名稱」，不得自行猜測或更換。【必須呼叫的工具（依序）】1) stock_identity_resolver({stock_id}) 2) tw_stock_news_search(公司名稱) 3) tw_market_news_search 4) tw_industry_news_search(產業關鍵字) 5) international_market_news_search。若任一工具失敗或回傳 No news，該類別標示「資料不足」，絕對禁止虛構新聞標題、來源、日期或摘要。接著才是你的本職：此任務由新聞與情緒分析師負責，與大盤、技術、基本面三項分析任務平行執行，僅需以股票代碼與公司名稱作為輸入。分析師需上網搜尋並彙整共 9 則新聞：3 則該公司相關新聞、3 則台灣股市大盤新聞、1 則該公司所屬產業新聞、2 則可能影響台股的國際新聞。針對每則新聞標示情緒傾向（正面/負面/中性），最後整體判斷市場情緒是否過熱或過度悲觀，並明確列出可能影響股價的潛在利空與利多事件。",
+      "expected_output": "Markdown 格式報告，需包含：(1) 9 則新聞清單（標題、來源、情緒傾向、摘要與發布日期）；(2) 各類別新聞情緒彙整（公司/大盤/產業/國際）；(3) 潛在利空與利多事件列表；(4) 整體市場情緒判斷（過熱/正常/過度悲觀）與對操作的具體影響建議。",
+      "agent": "news_sentiment_analyst"
+    },
+    {
+      "name": "final_investment_decision",
+      "description": "【第一步 - 必做】呼叫 stock_identity_resolver 工具，輸入股票代碼 {stock_id}，確認公司中文名稱、英文名稱、產業。後續所有分析都必須使用確認後的「公司中文名稱」，不得自行猜測或更換。【必須呼叫的工具（依序）】1) stock_identity_resolver({stock_id}) 2) tw_market_index_query 3) finmind_margin_trading({stock_id})。接著才是你的本職：此任務為序列最後一步，必須等待前四項分析任務（大盤、技術、基本面、新聞情緒）全部完成後才能啟動，由總風控官兼基金經理負責。經理需先檢視大盤分析師給出的多空立場，判斷整體市場環境是否允許進場；接著參考技術分析師的支撐壓力區與成交量確認，決定以技術面來看何時為最佳買點；再依據基本面分析師的三情境本益比與合理股價區間，判斷目前股價是否便宜。最後結合新聞情緒分析師的市場溫度與潛在利空，做出最終投資決策（強烈買進/買進/觀望/不買），並提出具體進場價、目標價、停損價與風險控管措施，完整說明分析依據與結論。",
+      "expected_output": "Markdown 格式最終決策報告，需包含：(1) 大盤環境判斷摘要；(2) 技術面進場時機與價位建議；(3) 基本面估值結論（便宜/合理/偏貴）；(4) 新聞情緒風險評估；(5) 最終投資決策（強烈買進/買進/觀望/不買）；(6) 具體進場價、停損價、目標價與持倉比例；(7) 完整分析依據、風險說明與結論。",
+      "agent": "chief_risk_officer",
+      "context": [
+        "market_analysis",
+        "technical_analysis",
+        "fundamental_analysis",
+        "news_sentiment_analysis"
+      ]
+    }
+  ]
+}
