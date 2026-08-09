@@ -20,9 +20,7 @@ logging.getLogger("peewee").setLevel(logging.CRITICAL)
 from dotenv import load_dotenv
 load_dotenv()
 
-# Zen API 設定（使用 .env 的 OPENAI_API_KEY，base_url 指向 Zen）
 os.environ["OPENAI_API_BASE"] = os.environ.get("OPENAI_API_BASE", "https://opencode.ai/zen/v1")
-# OPENAI_API_KEY 從 .env 讀取（需為 Zen API key）
 
 from crewai import Agent, Task, Crew, Process
 from crewai import LLM as CrewLLM
@@ -33,7 +31,7 @@ from tools.news_tool import (
     TWStockNewsTool, TWMarketNewsTool,
     TWIndustryNewsTool, IntlMarketNewsTool,
 )
-from tools.web_research_tool import WebPageReaderTool
+from tools.web_research_tool import WebPageReaderTool, DeepWebResearchTool
 from tools.finmind_tools import (
     FinmindPERTool, FinmindMonthlyRevenueTool,
     FinmindInstitutionalTool, FinmindMarginTool,
@@ -42,27 +40,19 @@ from tools.finmind_tools import (
 
 from md_to_pdf import md_to_pdf
 
-# ================ LLM 分工（Zen 免費模型三種搭配） ================
 class TextToolLLM(CrewLLM):
-    """覆寫 supports_function_calling → 強制使用傳統文字式 tool calling。
-
-    Zen 免費模型在原生 function calling 時可能回傳 content=None/空字串，
-    導致 CrewAI 報 "Invalid response from LLM call - None or empty"。
-    讓 CrewAI 改用 ReAct 文字式工具呼叫可完全避開此問題。
-    """
-
+    """Force traditional text-based tool calling for the Zen free models."""
     def supports_function_calling(self) -> bool:
         return False
 
 
 def _zen_llm(model: str) -> CrewLLM:
-    """建立指向 Zen OpenAI 相容端點的 LLM"""
     llm = TextToolLLM(
         model=model,
         base_url=os.environ.get("OPENAI_API_BASE", "https://opencode.ai/zen/v1"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
-    llm.max_retries = 5  # Zen 免費額度易觸發 500/503，提高 SDK 重試次數
+    llm.max_retries = 5
     return llm
 
 
@@ -91,9 +81,9 @@ GOVERNANCE = """
    a) 用佔位符填補（X.X%、??、?、待補充、示意、例如等）
    b) 虛構任何新聞標題、來源、日期、摘要（尤其嚴禁編造 CNBC/Bloomberg 等媒體）
    c) 編造未經工具回傳的公司名稱、股價、EPS、PER、營收等數字
+6. 【Web Research】使用 research dossier 時，只有文章正文明確出現的資訊才可視為證據；無法讀取原文的新聞只能引用搜尋結果明確提供的標題、來源、日期與 URL。
 """
 
-# 每個 agent 對應的工作守則（playbook），直接注入 backstory 確保 SOP 生效
 SKILLS = {
     "market": "skills/technical_analysis_playbook.md",
     "technical": "skills/technical_analysis_playbook.md",
@@ -142,8 +132,12 @@ fundamental_agent = make_agent(
 
 news_agent = make_agent(
     "news", "news_sentiment_analyst.json", "news",
-    [StockResolverTool(), TWStockNewsTool(), TWMarketNewsTool(),
-     TWIndustryNewsTool(), IntlMarketNewsTool(), WebPageReaderTool()]
+    [
+        StockResolverTool(),
+        TWStockNewsTool(), TWMarketNewsTool(),
+        TWIndustryNewsTool(), IntlMarketNewsTool(),
+        WebPageReaderTool(), DeepWebResearchTool(),
+    ]
 )
 
 chief_agent = make_agent(
@@ -201,7 +195,7 @@ def run_crew(stock_id: str):
         except Exception as e:
             print(
                 f"\n⚠️ 第 {attempt}/{max_attempts} 次執行失敗"
-                f"（可能 Ollama 服務未啟動/推理模型限流或伺服器 500）: {type(e).__name__}: {e}"
+                f"（可能 Zen 免費模型限流或伺服器 500）: {type(e).__name__}: {e}"
             )
             if attempt == max_attempts:
                 raise
@@ -212,7 +206,6 @@ def run_crew(stock_id: str):
     print("=" * 50)
     print(result)
 
-    # 收集各 agent 報告 → 合併成一份 PDF
     task_outputs = {}
     for t in tasks:
         if t.agent and hasattr(t, "output") and t.output and t.output.raw:
@@ -225,7 +218,7 @@ def run_crew(stock_id: str):
 
     if len(task_outputs) < len(agent_map):
         print(f"\n⚠️ 警告：僅收集到 {len(task_outputs)}/{len(agent_map)} 份報告")
-        for k, a in agent_map.items():
+        for k in agent_map:
             if k not in task_outputs:
                 print(f"   - 缺 {k} 報告")
     else:
