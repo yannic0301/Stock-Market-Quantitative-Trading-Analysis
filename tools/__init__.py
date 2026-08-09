@@ -22,6 +22,8 @@ from .finmind_tools import (
     FinmindEPSNetProfitTool,
 )
 from .news_sentiment_classifier import NewsSentimentClassifierTool
+from .web_research_tool import WebPageReaderTool
+
 ALL_TOOLS = {
     "StockResolverTool": StockResolverTool(),
     "TWStockKLineTool": TWStockKLineTool(),
@@ -40,4 +42,5 @@ ALL_TOOLS = {
     "FinmindShareholdingTool": FinmindShareholdingTool(),
     "FinmindEPSNetProfitTool": FinmindEPSNetProfitTool(),
     "NewsSentimentClassifierTool": NewsSentimentClassifierTool(),
+    "WebPageReaderTool": WebPageReaderTool(),
 }
