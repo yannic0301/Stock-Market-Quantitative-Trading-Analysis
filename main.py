@@ -148,6 +148,19 @@ chief_agent = make_agent(
 print("✅ 5 個 agents 就緒\n")
 
 
+NEWS_RESEARCH_TASK = """
+【Phase 2 Web Research - 必做】
+1. 先呼叫 stock_identity_resolver({stock_id})，確認公司中文名稱與產業。
+2. 優先呼叫 deep_web_research，輸入 company=確認後的公司中文名稱、industry=確認後的產業、focus=「近期可能影響股價、基本面、估值或市場風險的事件」。
+3. deep_web_research 會自動執行多組獨立搜尋、去重、來源/類別多樣化選擇，並嘗試閱讀多篇原文。這是本任務的主要研究工具，不要只做固定 9 則標題蒐集。
+4. 如果 dossier 的原文閱讀不足、某個關鍵事件需要驗證，再使用既有 tw_stock_news_search、tw_market_news_search、tw_industry_news_search、international_market_news_search 或 web_page_reader 補查。
+5. 報告必須把資訊分成「已驗證原文證據」「只有搜尋標題的線索」「你的推論」。只有 Article text 中明確出現的內容才算已驗證證據。
+6. 優先尋找公司官方公告/法說會/政府或交易所資料，再使用原始財經媒體交叉驗證。若不同來源互相矛盾，明確列出矛盾，不得自行編一個答案。
+7. 不得編造任何新聞、日期、來源、數字、摘要或文章內容。讀不到原文就寫「資料不足」，不得假裝讀過。
+8. 最終判斷市場情緒與風險時，必須說明每個重要結論是由哪些已驗證事件支持。
+"""
+
+
 def run_crew(stock_id: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     pdf_path = f"output_{stock_id}_{timestamp}.pdf"
@@ -168,7 +181,10 @@ def run_crew(stock_id: str):
 
     tasks = []
     for t in crew_cfg["tasks"]:
-        desc = f"【股票代碼】{stock_id}\n\n" + t["description"]
+        if t["agent"] == "news_sentiment_analyst":
+            desc = f"【股票代碼】{stock_id}\n\n" + NEWS_RESEARCH_TASK
+        else:
+            desc = f"【股票代碼】{stock_id}\n\n" + t["description"]
         spec = Task(
             description=desc,
             expected_output=t.get("expected_output", "Markdown 報告"),
