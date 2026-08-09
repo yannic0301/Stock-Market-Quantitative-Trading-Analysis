@@ -33,6 +33,7 @@ from tools.news_tool import (
     TWStockNewsTool, TWMarketNewsTool,
     TWIndustryNewsTool, IntlMarketNewsTool,
 )
+from tools.web_research_tool import WebPageReaderTool
 from tools.finmind_tools import (
     FinmindPERTool, FinmindMonthlyRevenueTool,
     FinmindInstitutionalTool, FinmindMarginTool,
@@ -44,7 +45,7 @@ from md_to_pdf import md_to_pdf
 # ================ LLM 分工（Zen 免費模型三種搭配） ================
 class TextToolLLM(CrewLLM):
     """覆寫 supports_function_calling → 強制使用傳統文字式 tool calling。
-    
+
     Zen 免費模型在原生 function calling 時可能回傳 content=None/空字串，
     導致 CrewAI 報 "Invalid response from LLM call - None or empty"。
     讓 CrewAI 改用 ReAct 文字式工具呼叫可完全避開此問題。
@@ -142,7 +143,7 @@ fundamental_agent = make_agent(
 news_agent = make_agent(
     "news", "news_sentiment_analyst.json", "news",
     [StockResolverTool(), TWStockNewsTool(), TWMarketNewsTool(),
-     TWIndustryNewsTool(), IntlMarketNewsTool()]
+     TWIndustryNewsTool(), IntlMarketNewsTool(), WebPageReaderTool()]
 )
 
 chief_agent = make_agent(
